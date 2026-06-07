@@ -1,15 +1,16 @@
 import express from 'express';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
-import { existsSync } from 'fs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const app = express();
 const PORT = process.env.PORT || 3003;
 
+// Serve static files from dist/
 app.use(express.static(join(__dirname, 'dist')));
 
-app.get('*', (req, res) => {
+// Catch-all for SPA routing (Express 5 compatible)
+app.use((req, res) => {
   res.sendFile(join(__dirname, 'dist', 'index.html'));
 });
 
