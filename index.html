@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>AI X-Ray — Visualize AI Reasoning Chains as Interactive Mindmaps</title>
+    <meta name="description" content="Paste AI reasoning text from DeepSeek R1, Claude, or any LLM and watch it transform into a stunning interactive mindmap. See branches, dead-ends, and key insights." />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+    <style>
+      * { margin: 0; padding: 0; box-sizing: border-box; }
+      html, body, #root { height: 100%; width: 100%; }
+      body { font-family: 'Inter', sans-serif; background: #080d1a; color: #e2e8f0; overflow: hidden; }
+      .gradient-text { background: linear-gradient(135deg, #22d3ee, #a78bfa); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+      .glow-blue { box-shadow: 0 0 20px rgba(34, 211, 238, 0.15), 0 0 60px rgba(34, 211, 238, 0.05); }
+      .glow-purple { box-shadow: 0 0 20px rgba(167, 139, 250, 0.15), 0 0 60px rgba(167, 139, 250, 0.05); }
+    </style>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.jsx"></script>
+  </body>
+</html>
