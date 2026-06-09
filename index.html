@@ -11,10 +11,25 @@
     <style>
       * { margin: 0; padding: 0; box-sizing: border-box; }
       html, body, #root { height: 100%; width: 100%; }
-      body { font-family: 'Inter', sans-serif; background: #080d1a; color: #e2e8f0; overflow: hidden; }
-      .gradient-text { background: linear-gradient(135deg, #22d3ee, #a78bfa); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+      body { font-family: 'Inter', sans-serif; background: #070b15; color: #e2e8f0; overflow: hidden; }
+      .gradient-text { background: linear-gradient(135deg, #22d3ee, #a78bfa); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
+      .gradient-text-lg { background: linear-gradient(135deg, #22d3ee, #818cf8, #a78bfa); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; background-size: 200% 200%; animation: grad-shift 4s ease infinite; }
+      @keyframes grad-shift { 0% { background-position: 0% 50%; } 50% { background-position: 100% 50%; } 100% { background-position: 0% 50%; } }
+      @keyframes fadeInUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+      @keyframes pulseGlow { 0%, 100% { box-shadow: 0 0 15px rgba(34, 211, 238, 0.2); } 50% { box-shadow: 0 0 30px rgba(34, 211, 238, 0.4); } }
+      @keyframes float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-10px); } }
       .glow-blue { box-shadow: 0 0 20px rgba(34, 211, 238, 0.15), 0 0 60px rgba(34, 211, 238, 0.05); }
       .glow-purple { box-shadow: 0 0 20px rgba(167, 139, 250, 0.15), 0 0 60px rgba(167, 139, 250, 0.05); }
+      .node-enter { animation: fadeInUp 0.5s ease forwards; opacity: 0; }
+      .node-enter:nth-child(1) { animation-delay: 0s; }
+      .node-enter:nth-child(2) { animation-delay: 0.1s; }
+      .node-enter:nth-child(3) { animation-delay: 0.2s; }
+      .node-enter:nth-child(4) { animation-delay: 0.3s; }
+      .node-enter:nth-child(5) { animation-delay: 0.4s; }
+      .node-enter:nth-child(6) { animation-delay: 0.5s; }
+      .node-hover { transition: all 0.3s ease; cursor: pointer; }
+      .node-hover:hover { transform: scale(1.05); filter: brightness(1.2); }
+      @media (max-width: 768px) { .split-panel { flex-direction: column !important; } .panel-input { width: 100% !important; min-width: unset !important; } }
     </style>
   </head>
   <body>

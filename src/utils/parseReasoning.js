@@ -1,225 +1,154 @@
 /**
  * AI Reasoning Chain Parser
- * Parses AI reasoning text (DeepSeek R1, Claude, etc.) into a graph structure
- * with nodes and edges for visualization as an interactive mindmap.
+ * Parses AI reasoning text into a graph with Start, Step, Correction,
+ * Insight, End node types for the mindmap visualization.
  */
 
-/**
- * Parse a block of AI reasoning text into a graph
- * @param {string} text - Raw AI reasoning/thinking text
- * @returns {{ nodes: Array, edges: Array, summary: object }}
- */
 export function parseReasoning(text) {
   if (!text || text.trim().length < 10) {
-    return { nodes: [], edges: [], summary: { error: 'Text too short to analyze' } };
+    return { nodes: [], edges: [], summary: { error: 'Text too short' } };
   }
 
   const lines = text.split('\n').filter(l => l.trim());
   const steps = [];
-
-  // Detect format: thinking/response (DeepSeek), numbered steps, or plain
-  const hasThinking = text.includes('</think>') || text.includes('');
-  
-  let currentStep = null;
   let stepIndex = 0;
+  let currentStep = null;
 
+  // Detect step boundaries
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i].trim();
     if (!line) continue;
 
-    // Check for reasoning step indicators
     const isNewStep = 
-      /^\d+[\.\)]\s/.test(line) ||                    // "1. " or "1) "
-      /^##?\s/.test(line) ||                           // Markdown headings
-      /^Step\s+\d+/i.test(line) ||                     // "Step 1"
-      line.startsWith(' thinking') ||                   // DeepSeek thinking tag
-      line.startsWith('') ||
-      line.startsWith('Alternatively') ||
-      line.startsWith('Another') ||
+      /^\d+[\.\)]\s/.test(line) ||
+      /^##?\s/.test(line) ||
+      /^Step\s+\d+/i.test(line) ||
+      /^(First|Second|Third|Finally|Next)\b/i.test(line) ||
       line.startsWith('Let me') ||
-      /^(First|Second|Third|Finally|Next)\b/i.test(line);
+      line.startsWith('I need');
 
-    // Check for branch indicators
-    const isBranch = 
-      /^(Alternatively|Another approach|Another way|Option|Possibly|Could also)/i.test(line);
+    const isCorrection =
+      /^(But|However|Wait|Actually|This doesn't|This fails|This won't work|Discard|Abandon|Let me reconsider)/i.test(line);
 
-    // Check for dead-end indicators
-    const isDeadEnd =
-      /^(But this doesn't|However.*not|This fails because|This won't work|Discard|Abandon)/i.test(line);
+    const isAlternative =
+      /^(Alternatively|Another approach|Another way|Option|Possibly|Could also|We could)/i.test(line);
 
-    // Check for conclusion
-    const isConclusion =
-      /^(Therefore|Thus|So|In conclusion|Finally|The answer|The result|I think|Answer:)/i.test(line);
+    const isInsight =
+      /^(I think|I notice|The key|Important|This means|So the)/i.test(line);
 
-    if (isNewStep || isBranch || isDeadEnd || isConclusion) {
-      if (currentStep) {
-        steps.push(currentStep);
-      }
+    const isEnd =
+      /^(Therefore|Thus|So|In conclusion|Finally|The answer is|Answer:)/i.test(line) ||
+      i === lines.length - 1;
+
+    let type = 'step';
+    if (i === 0 || (steps.length === 0 && !currentStep)) type = 'step';
+    else if (isEnd) type = 'end';
+    else if (isCorrection) type = 'correction';
+    else if (isAlternative) type = 'branch';
+    else if (isInsight) type = 'insight';
+
+    if (isNewStep || isCorrection || isAlternative || isInsight || isEnd) {
+      if (currentStep) steps.push(currentStep);
       currentStep = {
         id: `step-${stepIndex++}`,
-        text: line,
+        text: type === 'end' ? (line.length > 50 ? line.slice(0, 50) + '...' : line) : (line.length > 55 ? line.slice(0, 55) + '...' : line),
         fullText: line,
-        type: isConclusion ? 'conclusion' : isDeadEnd ? 'deadend' : isBranch ? 'branch' : 'step',
-        depth: 0,
-        children: [],
+        type,
       };
     } else if (currentStep) {
       currentStep.fullText += '\n' + line;
-    } else {
-      // First lines without a clear step header
-      currentStep = {
-        id: `step-${stepIndex++}`,
-        text: line.slice(0, 80) + (line.length > 80 ? '...' : ''),
-        fullText: line,
-        type: 'step',
-        depth: 0,
-        children: [],
-      };
     }
   }
   if (currentStep) steps.push(currentStep);
 
-  // Build graph nodes and edges
+  // Build graph
   const nodes = [];
   const edges = [];
-  const summary = {
-    totalSteps: steps.length,
-    branches: 0,
-    deadEnds: 0,
-    keyInsights: [],
+  const summary = { totalSteps: steps.length, branches: 0, corrections: 0, insights: 0 };
+
+  // Node style presets
+  const nodeStyles = {
+    step: { bg: 'linear-gradient(135deg, #1e293b, #0f172a)', border: '#475569', glow: '0 0 10px rgba(71,85,105,0.1)', icon: '⚡' },
+    correction: { bg: 'linear-gradient(135deg, #7f1d1d, #450a0a)', border: '#ef4444', glow: '0 0 20px rgba(239,68,68,0.3)', icon: '🔴' },
+    branch: { bg: 'linear-gradient(135deg, #1e1b4b, #090810)', border: '#818cf8', glow: '0 0 20px rgba(129,140,248,0.3)', icon: '🔄' },
+    insight: { bg: 'linear-gradient(135deg, #713f12, #292524)', border: '#facc15', glow: '0 0 20px rgba(250,204,21,0.2)', icon: '💡' },
+    end: { bg: 'linear-gradient(135deg, #065f46, #022c22)', border: '#22c55e', glow: '0 0 25px rgba(34,197,94,0.4)', icon: '✅' },
   };
 
-  // Root node — the input
+  // Root node
   nodes.push({
     id: 'root',
     type: 'input',
     position: { x: 400, y: 0 },
-    data: { 
-      label: '🧠 AI Reasoning',
-      description: text.slice(0, 120) + (text.length > 120 ? '...' : ''),
-    },
+    data: { label: '🧠 AI Reasoning', fullText: text.slice(0, 120) + (text.length > 120 ? '...' : '') },
     style: {
-      background: 'linear-gradient(135deg, #1e293b, #334155)',
-      border: '2px solid #22d3ee',
-      borderRadius: '12px',
-      color: '#e2e8f0',
-      padding: '12px 20px',
-      fontWeight: 700,
-      fontSize: '14px',
-      boxShadow: '0 0 30px rgba(34, 211, 238, 0.2)',
+      background: 'linear-gradient(135deg, #0891b2, #6366f1)',
+      border: '2px solid #22d3ee', borderRadius: '14px',
+      color: 'white', padding: '12px 22px', fontWeight: 700, fontSize: '14px',
+      boxShadow: '0 0 35px rgba(34,211,238,0.25)',
     },
   });
 
-  // Determine layout: branching tree
   let prevId = 'root';
-  let xOffset = 0;
   const ySpacing = 120;
-  const xSpacing = 280;
 
   for (let i = 0; i < steps.length; i++) {
     const step = steps[i];
-    const nodeId = step.id;
-    
-    // Determine which branch column
-    if (step.type === 'branch') {
-      xOffset += xSpacing;
-    } else if (step.type === 'deadend' || step.type === 'conclusion') {
-      // Keep same column but offset
-    }
+    const s = nodeStyles[step.type] || nodeStyles.step;
 
-    // Node styling based on type
-    let bg, border, glow;
-    if (step.type === 'conclusion') {
-      bg = 'linear-gradient(135deg, #065f46, #047857)';
-      border = '#22c55e';
-      glow = '0 0 20px rgba(34, 197, 94, 0.3)';
-    } else if (step.type === 'deadend') {
-      bg = 'linear-gradient(135deg, #7f1d1d, #991b1b)';
-      border = '#ef4444';
-      glow = '0 0 20px rgba(239, 68, 68, 0.2)';
-    } else if (step.type === 'branch') {
-      bg = 'linear-gradient(135deg, #1e1b4b, #312e81)';
-      border = '#818cf8';
-      glow = '0 0 20px rgba(129, 140, 248, 0.2)';
-    } else {
-      bg = 'linear-gradient(135deg, #0f172a, #1e293b)';
-      border = '#475569';
-      glow = '0 0 10px rgba(71, 85, 105, 0.1)';
-    }
-
-    const xPos = 400 + (step.type === 'branch' ? xOffset : step.type === 'deadend' ? -xSpacing : 0);
+    const xPos = 400 + (step.type === 'branch' ? 260 : step.type === 'correction' ? -260 : 0);
     const yPos = (i + 1) * ySpacing;
 
     nodes.push({
-      id: nodeId,
+      id: step.id,
       type: 'default',
       position: { x: xPos, y: yPos },
-      data: { 
-        label: step.text.slice(0, 50) + (step.text.length > 50 ? '...' : ''),
+      data: {
+        label: `${s.icon} ${step.text}`,
         fullText: step.fullText,
         type: step.type,
       },
+      className: 'node-hover',
       style: {
-        background: bg,
-        border: `2px solid ${border}`,
-        borderRadius: '10px',
-        color: '#e2e8f0',
-        padding: '10px 16px',
-        fontWeight: step.type === 'conclusion' ? 700 : 500,
-        fontSize: '12px',
-        maxWidth: '240px',
-        boxShadow: glow,
+        background: s.bg,
+        border: `2px solid ${s.border}`, borderRadius: '12px',
+        color: '#e2e8f0', padding: '10px 18px',
+        fontWeight: step.type === 'end' ? 700 : 500,
+        fontSize: '11px', maxWidth: '250px',
+        boxShadow: s.glow,
+        transition: 'all 0.3s ease',
       },
     });
 
-    // Edge from previous node
-    const edgeColor = step.type === 'conclusion' ? '#22c55e' : 
-                      step.type === 'deadend' ? '#ef4444' : 
-                      step.type === 'branch' ? '#818cf8' : '#475569';
+    const edgeColor = step.type === 'end' ? '#22c55e' : step.type === 'correction' ? '#ef4444' : step.type === 'branch' ? '#818cf8' : step.type === 'insight' ? '#facc15' : '#475569';
 
     edges.push({
-      id: `e-${prevId}-${nodeId}`,
+      id: `e-${prevId}-${step.id}`,
       source: prevId,
-      target: nodeId,
-      animated: step.type === 'conclusion',
-      style: { stroke: edgeColor, strokeWidth: 2 },
-      label: step.type === 'branch' ? 'Alternative' : 
-             step.type === 'deadend' ? 'Dead End' : 
-             step.type === 'conclusion' ? '✓ Solution' : '',
-      labelStyle: { fill: edgeColor, fontWeight: 600, fontSize: 10 },
+      target: step.id,
+      animated: true,
+      style: { stroke: edgeColor, strokeWidth: 2, strokeDasharray: step.type === 'branch' ? '6,3' : undefined },
+      label: step.type === 'branch' ? 'Alternative' : step.type === 'correction' ? '✗ Correction' : step.type === 'end' ? '✓ Solution' : '',
+      labelStyle: { fill: edgeColor, fontWeight: 700, fontSize: 10, textShadow: '0 0 5px rgba(0,0,0,0.5)' },
     });
 
-    // Dead-ends and branches get a visual indicator in summary
-    if (step.type === 'branch') {
-      summary.branches++;
-      summary.keyInsights.push(`Explored alternative: "${step.text.slice(0, 60)}..."`);
-    }
-    if (step.type === 'deadend') {
-      summary.deadEnds++;
-      summary.keyInsights.push(`Discarded path: "${step.text.slice(0, 60)}..."`);
-    }
-
-    prevId = nodeId;
+    if (step.type === 'branch') summary.branches++;
+    if (step.type === 'correction') summary.corrections++;
+    if (step.type === 'insight') summary.insights++;
+    prevId = step.id;
   }
 
   return { nodes, edges, summary };
 }
 
-/**
- * Generate a shareable text summary of the reasoning chain
- */
 export function generateSummaryText(summary) {
   return `AI X-Ray Analysis
-• ${summary.totalSteps} reasoning steps identified
+• ${summary.totalSteps} reasoning steps
 • ${summary.branches} alternative paths explored
-• ${summary.deadEnds} dead-ends abandoned
-${summary.keyInsights.length > 0 ? '\nKey Insights:\n' + summary.keyInsights.map(k => '• ' + k).join('\n') : ''}`;
+• ${summary.corrections} self-corrections
+• ${summary.insights} key insights`;
 }
 
-/**
- * Generate a shareable URL that encodes the reasoning text
- * Uses URL-safe base64 encoding for the reasoning text
- */
 export function generateShareableUrl(text) {
   if (!text) return null;
   try {
@@ -228,7 +157,6 @@ export function generateShareableUrl(text) {
     url.searchParams.set('r', encoded);
     return url.toString();
   } catch {
-    // Fallback for very long texts — use a hash fragment
     const short = text.slice(0, 500);
     const encoded = btoa(encodeURIComponent(short));
     const url = new URL(window.location.href);
@@ -238,16 +166,11 @@ export function generateShareableUrl(text) {
   }
 }
 
-/**
- * Decode reasoning text from a shareable URL
- */
 export function decodeShareableUrl() {
   try {
     const params = new URLSearchParams(window.location.search);
     const encoded = params.get('r');
     if (!encoded) return null;
     return decodeURIComponent(atob(encoded));
-  } catch {
-    return null;
-  }
+  } catch { return null; }
 }
